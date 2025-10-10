@@ -146,7 +146,7 @@ def main(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run temperature split experiment")
     parser.add_argument("config", type=str, help="Path to the YAML configuration file")
-    parser.add_argument("physics_based", type=bool, default=False, help="Path to the YAML configuration file")
+    parser.add_argument("physics_based", type=bool, default=False, help="Whether the model configuration uses a physical law")
     parser.add_argument("--wandb_project", type=str, default=None, help="Name of the wandb project (optional)")
 
     args = parser.parse_args()
