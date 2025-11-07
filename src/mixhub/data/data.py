@@ -354,19 +354,19 @@ class DrugSolubilityData(MixtureDataInfo):
         )
 
 
-class MedecineFormulationData(MixtureDataInfo):
+class MedicineFormulationData(MixtureDataInfo):
     def __init__(
             self,
-            name: str = "MedecineFormulation",
+            name: str = "MedicineFormulation",
             description: str = """
             """,
             id_column: list[str] = ["cmp_ids"],
             fraction_column: list[str] = ["cmp_mole_fractions"],
             context_columns: list[str] = [],
             output_column: str = "value",
-            data_dir: str = os.path.abspath("../datasets/medecine-formulations/processed_data"),
+            data_dir: str = os.path.abspath("../datasets/medicine-formulations/processed_data"),
             compound_csv_name: str = "compounds",
-            mixture_csv_name: str = "processed_MedecineFormulation",
+            mixture_csv_name: str = "processed_MedicineFormulations",
     ):
         super().__init__(
             name,
@@ -391,7 +391,7 @@ DATA_CATALOG = {
     "mon": MONData,
     "olfactory": OlfactorySimData,
     "drug-solubility": DrugSolubilityData,
-    "medecine-formulations": MedecineFormulationData,
+    "medicine-formulations": MedicineFormulationData,
 }
 
 PHYSICS_SUPPORTED = {

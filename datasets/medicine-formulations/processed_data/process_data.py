@@ -47,7 +47,7 @@ def mixture_info(row, components, compound_ids):
         val = row[comp]
         if val > 0:
             ids.append(compound_ids[i])
-            concs.append(val / 100)
+            concs.append(float(val / 100))
     return pd.Series({"cmp_ids": ids, "cmp_mole_fractions": concs})
 
 
