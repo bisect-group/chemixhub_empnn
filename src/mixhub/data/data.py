@@ -354,6 +354,33 @@ class DrugSolubilityData(MixtureDataInfo):
         )
 
 
+class MedecineFormulationData(MixtureDataInfo):
+    def __init__(
+            self,
+            name: str = "MedecineFormulation",
+            description: str = """
+            """,
+            id_column: list[str] = ["cmp_ids"],
+            fraction_column: list[str] = ["cmp_mole_fractions"],
+            context_columns: list[str] = [],
+            output_column: str = "value",
+            data_dir: str = os.path.abspath("../datasets/medecine-formulations/processed_data"),
+            compound_csv_name: str = "compounds",
+            mixture_csv_name: str = "processed_MedecineFormulation",
+    ):
+        super().__init__(
+            name,
+            description,
+            id_column,
+            fraction_column,
+            context_columns,
+            output_column,
+            data_dir,
+            compound_csv_name,
+            mixture_csv_name
+        )
+
+
 DATA_CATALOG = {
     "diffmix": DiffMixData,
     "ilthermo": IlThermoData,
@@ -364,6 +391,7 @@ DATA_CATALOG = {
     "mon": MONData,
     "olfactory": OlfactorySimData,
     "drug-solubility": DrugSolubilityData,
+    "medecine-formulations": MedecineFormulationData,
 }
 
 PHYSICS_SUPPORTED = {

@@ -66,13 +66,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dataset_name = args.dataset_name
+    split_type = args.split_type
     geometric = args.geometric
     k_list = args.k_values
     seed = 0
 
     main(
         dataset_name=dataset_name,
-        split_type="temperature",
+        split_type=split_type,
         k_list=k_list,
         seed=seed,
         geometric=geometric,
