@@ -1,31 +1,31 @@
-# 🧪📊 CheMixHub: Datasets and Benchmarks for Chemical Mixture Property Prediction
+# CheMixHub: Datasets and Benchmarks for Chemical Mixture Property Prediction
 
-[![Paper](https://img.shields.io/badge/paper-arXiv%3AXXXX.XXXXX-B31B1B.svg)](https://arxiv.org/abs/XXXX.XXXXX) <!-- TODO: Add ArXiv link -->
+[![Paper](https://img.shields.io/badge/paper-arXiv%3A2506.12231-B31B1B.svg)](https://arxiv.org/abs/2506.12231) <!-- TODO: Add ArXiv link -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) <!-- Or your chosen license -->
 
-![](media/abstract_fig.png)
+![](media/figures/abstract_fig.png)
 
 ## 🚀 Overview
 
 **CheMixHub** is the first comprehensive benchmark suite for machine learning on **chemical mixtures**. It provides curated datasets, robust data splitting strategies, and baseline models to accelerate research in predicting and optimizing mixture properties.
 
-This repository contains all datasets, data processing scripts, and code for the baselines presented in our paper: _"CheMixHub: Datasets and Benchmarks for Chemical Mixture Property Prediction"_ (Link to paper/arXiv). <!-- Make this a link -->
+This repository contains all datasets, data processing scripts, and code for the baselines presented in our paper: _"CheMixHub: Datasets and Benchmarks for Chemical Mixture Property Prediction"_ 
 
 ## ✨ Features & Key Contributions
 
--   **🔬 Curated Datasets (13 Tasks):**
+-   **Curated Datasets (13 Tasks):**
     -   Standardized 11 tasks from 7 diverse public datasets.
     -   **New:** 2 large-scale tasks (116,896 data points) from ILThermo, larger than any existing public mixture dataset.
     -   See [Dataset Details](#-dataset-details) below for a list of all included datasets and sources.
--   **🔄 Robust Generalization Splits:**
+-   **Robust Generalization Splits:**
     -   Random
     -   Unseen Chemical Components
     -   Varying Mixture Size/Composition
-    -   Out-of-Distribution Context (e.g., temperature)
--   **📈 Baseline Models & Benchmarks:**
+    -   Extrapolation Context (e.g., temperature)
+-   **Baseline Models & Benchmarks:**
     -   Implementations of representative ML models.
     -   Established initial performance benchmarks for easy comparison.
--   **🥐 [Croissant Metadata](https://www.nature.com/articles/s41597-024-03195-6):** Each dataset includes a `croissant.json` file, providing rich, standardized metadata for improved findability, usability, and interoperability with ML tools. (See `datasets/<dataset_name>/croissant.json`)
+-   **🥐 Croissant Metadata:** Each dataset includes a `croissant.json` file, providing rich, standardized metadata for improved findability, usability, and interoperability with ML tools. (See `datasets/<dataset_name>/croissant.json`)
 
 ## 🏁 Getting Started
 
@@ -47,17 +47,11 @@ This repository contains all datasets, data processing scripts, and code for the
 ## 📁 Repository Structure
 
 -   `datasets/`: Contains all curated datasets.
-    -   `<dataset_name>/`:
-        -   `README.md`: Dataset-specific information, license, and original source.
-        -   `croissant.json`: Standardized metadata file.
-        -   `raw_data/`: Original data files.
-        -   `processed_data/`:
-            -   `data_processing.py`: Script for standardization.
-            -   `processed_data.csv`: Mixture-level data.
-            -   `compounds.csv`: Component metadata.
-            -   `{dataset_name}_splits/`: Predefined 5-fold CV splits.
+-   `config/`: Basic config files used to train models.
 -   `scripts/`: Utility scripts (training, evaluation, feature precomputation, etc.).
--   `chemixhub/`: Core library code (if applicable, for data loading, models, etc.). <!-- Add if you have a Python package structure -->
+-   `src/`: Core library code.
+
+Check out the separate READMEs in each folder for more details!
 
 ## 📊 Dataset Details
 
@@ -85,9 +79,9 @@ CheMixHub consolidates and standardizes data from the following sources:
 If you use CheMixHub in your research, please cite our paper:
 
 ```bibtex
-@article{chemixhub202X,
-  title={{CheMixHub: Datasets and Benchmarks for Chemical Mixture Property Prediction}},
-  author={Ella Rajaonson, Mahyar Rajabi Kochi, Luis Martin Mejia Mendoza, Seyed Mohamad Moosavi, Benjamin Sanchez-Lengeling}
-  journal={}, % TODO
-  year={2025},
+@article{rajaonson2025chemixhub,
+  title={CheMixHub: Datasets and Benchmarks for Chemical Mixture Property Prediction},
+  author={Rajaonson, Ella Miray and Kochi, Mahyar Rajabi and Mendoza, Luis Martin Mejia and Moosavi, Seyed Mohamad and Sanchez-Lengeling, Benjamin},
+  journal={arXiv preprint arXiv:2506.12231},
+  year={2025}
 }

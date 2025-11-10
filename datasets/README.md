@@ -29,6 +29,7 @@ The dataset repository is structured as follow:
 dataset_name/
 ├── raw_data/
 └── processed_data/
+    ├── dataset_name_splits/
     ├── compounds.csv
     ├── croissant.json
     ├── data_processing.py
@@ -56,6 +57,7 @@ dataset_name/
 
     3. `croissant.json`: A Croissant file associated with the dataset.
     4. `data_processing.py`: The script converting the data found in `raw_data/` into `compounds.csv` and `processed_dataset_name.csv`
+    5. `dataset_name_splits/`: The folder containing the different split types for a defined dataset
 
 ## Adding a new dataset
 
