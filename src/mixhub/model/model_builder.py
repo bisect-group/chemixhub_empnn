@@ -95,9 +95,9 @@ def build_mixture_model(config):
         MoleculeEncoderEnum.mpnn: MPNNNets(
             node_dim=NODE_DIM,
             edge_dim=EDGE_DIM,
-            global_dim=config.mol_encoder.gnn.global_dim,
-            hidden_dim=config.mol_encoder.gnn.hidden_dim,
-            depth=config.mol_encoder.gnn.depth,
+            global_dim=config.mol_encoder.mpnn.global_dim,
+            hidden_dim=config.mol_encoder.mpnn.hidden_dim,
+            depth=config.mol_encoder.mpnn.depth,
             dropout_rate=config.dropout_rate,
         ),
         MoleculeEncoderEnum.equivariant_gnn: EquivariantNets(
