@@ -72,7 +72,7 @@ parameters:
   
   # GNN-specific hyperparameters (only used when featurization is custom_molecular_graphs)
   mixture_model.mol_encoder.type:
-    values: ["equivariant_gnn"]
+    value: "equivariant_gnn"
   
   mixture_model.mol_encoder.equivariant_gnn.hidden_dim:
     values: [64, 128, 192, 256, 320]
