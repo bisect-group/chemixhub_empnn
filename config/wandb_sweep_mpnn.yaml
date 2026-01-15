@@ -49,7 +49,7 @@ parameters:
     values: [0, 1, 2, 3]
   
   mixture_model.mol_aggregation:
-    values: ["mean", "max", "pna", "scaled_pna", "attention", "set2set"]
+    values: ["mean", "max", "pna", "scaled_pna", "attn", "set2set"]
   
   mixture_model.attn_num_heads:
     values: [1, 4, 8, 16]
