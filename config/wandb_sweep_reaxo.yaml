@@ -80,6 +80,12 @@ parameters:
   mixture_model.mol_encoder.equivariant_gnn.depth:
     values: [2, 3, 4]
   
+  mixture_model.mol_encoder.equivariant_gnn.norm_coors:
+    values: [true, false]
+  
+  mixture_model.mol_encoder.equivariant_gnn.norm_feats:
+    values: [true, false]
+  
   # Fixed parameters
   max_epochs:
     value: 500

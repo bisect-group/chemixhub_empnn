@@ -70,8 +70,8 @@ mixture_model:
 
 # Data
 dataset:
-  name: "miscible-solvent"
-  property: "Density"
+  name: "olfactory"
+  property: "Mixture similarity"
   featurization: "custom_molecular_graphs" # ["custom_molecular_graphs", "molt5_embeddings", "rdkit2d_normalized_features", "custom_molecular_graphs_3d"]
 
 # Scheduler
@@ -83,7 +83,7 @@ weight_decay: 0
 
 # Trainer
 seed: 42
-root_dir: "./logs" # To fill
+root_dir: "./logs/olfactory_mixture_similarity" # To fill
 num_workers: 8
 max_epochs: 100
 batch_size: 1024
