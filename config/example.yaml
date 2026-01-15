@@ -7,12 +7,22 @@ mixture_model:
 
   # Molecule blocks
   mol_encoder:
-    type: "linear"  # ["linear", "gnn"]
+    type: "mpnn"  # ["linear", "gnn", "equivariant_gnn", "mpnn"]
     output_dim: 128
     gnn:
       global_dim: ${mixture_model.mol_encoder.output_dim}
       hidden_dim: 50
       depth: 3
+    mpnn:
+      global_dim: ${mixture_model.mol_encoder.output_dim}
+      hidden_dim: 50
+      depth: 3
+    equivariant_gnn:
+      global_dim: ${mixture_model.mol_encoder.output_dim}
+      hidden_dim: 50
+      depth: 3
+      norm_coors: True
+      norm_feats: True
 
   # Fraction agg
   fraction_aggregation:
@@ -62,7 +72,7 @@ mixture_model:
 dataset:
   name: "miscible-solvent"
   property: "Density"
-  featurization: "rdkit2d_normalized_features" # ["custom_molecular_graphs", "molt5_embeddings", "rdkit2d_normalized_features"]
+  featurization: "custom_molecular_graphs" # ["custom_molecular_graphs", "molt5_embeddings", "rdkit2d_normalized_features", "custom_molecular_graphs_3d"]
 
 # Scheduler
 loss_type: "mse"
@@ -73,7 +83,7 @@ weight_decay: 0
 
 # Trainer
 seed: 42
-root_dir: # To fill
+root_dir: "./logs" # To fill
 num_workers: 8
 max_epochs: 100
 batch_size: 1024

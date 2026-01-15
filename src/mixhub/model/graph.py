@@ -1,14 +1,13 @@
 from typing import Union, Optional, List
 
 import json
-import numpy as np
 
 import torch
 import torch.nn as nn
 import torch_geometric as pyg
-from torch_geometric.nn import MetaLayer, Linear, GAT
+from torch_geometric.nn import MetaLayer, Linear, GAT, GCN
 from torch_geometric.nn.aggr import MultiAggregation
-from torch_geometric.data import Batch
+from egnn_pytorch import EGNN_Sparse
 
 from mixhub.data.utils import UNK_TOKEN
 
@@ -95,6 +94,102 @@ class NodeAttnModel(nn.Module):
         return out
 
 
+class NodeEquivariantModel(nn.Module):
+    def __init__(
+        self,
+        node_dim: int,
+        edge_dim: int,
+        hidden_dim: Optional[int] = 50,
+        dropout: Optional[float] = 0.0,
+        norm_coors: Optional[bool] = True,
+        norm_feats: Optional[bool] = True,
+    ):
+        super().__init__()
+        self.node_dim = node_dim
+        self.edge_dim = edge_dim
+        self.hidden_dim = hidden_dim
+        self.norm_coors = norm_coors
+        self.norm_feats = norm_feats
+        self.dropout = dropout
+
+        # self attention layer
+        self.equivariant_op = EGNN_Sparse(
+            feats_dim=self.node_dim,
+            edge_attr_dim=self.edge_dim,
+            m_dim=self.hidden_dim,
+            dropout=self.dropout,
+            norm_coors=self.norm_coors,
+            norm_feats=self.norm_feats,
+        )
+        self.output_mlp = get_mlp(hidden_dim, node_dim + 3, num_layers=2)
+        self.dropout_layer = nn.Dropout(dropout)
+        self.norm1 = nn.LayerNorm(node_dim + 3)
+        self.norm2 = nn.LayerNorm(node_dim + 3)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+        u: torch.Tensor,
+        batch: torch.Tensor,
+    ):
+        # x: [N, F_x], where N is the number of nodes.
+        # edge_index: [2, E] with max entry N - 1.
+        # edge_attr: [E, F_e]
+        # u: [B, F_u]
+        # batch: [N] with max entry B - 1.
+        equivariant_out = self.equivariant_op(x, edge_index, edge_attr)
+        out = self.norm1(x + self.dropout_layer(equivariant_out))
+        out = self.norm2(out + self.dropout_layer(self.output_mlp(out)))
+        return out
+
+
+class NodeMPNNModel(nn.Module):
+    def __init__(
+        self,
+        node_dim: int,
+        hidden_dim: Optional[int] = 50,
+        dropout: Optional[int] = 0.0,
+        num_layers: Optional[int] = 1,
+    ):
+        super().__init__()
+        self.node_dim = node_dim
+        self.hidden_dim = hidden_dim
+        self.dropout = dropout
+        self.num_layers = num_layers
+
+        # self attention layer
+        self.self_attn = GCN(
+            node_dim,
+            node_dim,
+            num_layers=num_layers,
+            dropout=dropout,
+        )
+        self.output_mlp = get_mlp(hidden_dim, node_dim, num_layers=2)
+        self.dropout_layer = nn.Dropout(dropout)
+        self.norm1 = nn.LayerNorm(node_dim)
+        self.norm2 = nn.LayerNorm(node_dim)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+        u: torch.Tensor,
+        batch: torch.Tensor,
+    ):
+        # x: [N, F_x], where N is the number of nodes.
+        # edge_index: [2, E] with max entry N - 1.
+        # edge_attr: [E, F_e]
+        # u: [B, F_u]
+        # batch: [N] with max entry B - 1.
+        attn = self.self_attn(x, edge_index)
+        out = self.norm1(x + self.dropout_layer(attn))
+        out = self.norm2(out + self.dropout_layer(self.output_mlp(out)))
+        return out
+
+
 class GlobalPNAModel(nn.Module):
     def __init__(
         self,
@@ -162,6 +257,47 @@ def get_graphnet_layer(
     Helper function to produce GraphNets layer.
     """
     node_net = NodeAttnModel(node_dim, hidden_dim=hidden_dim, dropout=dropout)
+    edge_net = EdgeFiLMModel(edge_dim, hidden_dim=hidden_dim, dropout=dropout)
+    global_net = GlobalPNAModel(global_dim, hidden_dim=hidden_dim, dropout=dropout)
+    return MetaLayer(edge_net, node_net, global_net)
+
+
+def get_equivariant_layer(
+    node_dim: int,
+    edge_dim: int,
+    global_dim: int,
+    hidden_dim: Optional[int] = 50,
+    dropout: Optional[float] = 0.0,
+    norm_coors: Optional[bool] = True,
+    norm_feats: Optional[bool] = True,
+):
+    """
+    Helper function to produce GraphNets layer.
+    """
+    node_net = NodeEquivariantModel(
+        node_dim=node_dim,
+        edge_dim=edge_dim,
+        hidden_dim=hidden_dim,
+        dropout=dropout,
+        norm_coors=norm_coors,
+        norm_feats=norm_feats,
+    )
+    edge_net = EdgeFiLMModel(edge_dim, hidden_dim=hidden_dim, dropout=dropout)
+    global_net = GlobalPNAModel(global_dim, hidden_dim=hidden_dim, dropout=dropout)
+    return MetaLayer(edge_net, node_net, global_net)
+
+
+def get_mpnn_layer(
+    node_dim: int,
+    edge_dim: int,
+    global_dim: int,
+    hidden_dim: Optional[int] = 50,
+    dropout: Optional[float] = 0.0,
+):
+    """
+    Helper function to produce GraphNets layer.
+    """
+    node_net = NodeMPNNModel(node_dim, hidden_dim=hidden_dim, dropout=dropout)
     edge_net = EdgeFiLMModel(edge_dim, hidden_dim=hidden_dim, dropout=dropout)
     global_net = GlobalPNAModel(global_dim, hidden_dim=hidden_dim, dropout=dropout)
     return MetaLayer(edge_net, node_net, global_net)
@@ -242,10 +378,10 @@ class GraphNets(nn.Module):
     #     return out
 
     def forward_multi_component(
-            self,
-            data: List[pyg.data.Data],
-            data_indices: torch.Tensor,
-        ):
+        self,
+        data: List[pyg.data.Data],
+        data_indices: torch.Tensor,
+    ):
 
         mol_emb = self.forward_single_component(data)
 
@@ -253,7 +389,7 @@ class GraphNets(nn.Module):
             (data_indices.shape[0], data_indices.shape[1], mol_emb.shape[-1]),
             fill_value=UNK_TOKEN,
             device=mol_emb.device,
-            dtype=mol_emb.dtype
+            dtype=mol_emb.dtype,
         )
 
         # Create mask for valid indices
@@ -261,7 +397,202 @@ class GraphNets(nn.Module):
 
         # Get valid positions and corresponding embeddings
         valid_indices = data_indices[valid_mask]  # shape: (num_valid,)
-        output[valid_mask] = mol_emb[valid_indices]  # broadcasted to (num_valid, emb_size)
+        output[valid_mask] = mol_emb[
+            valid_indices
+        ]  # broadcasted to (num_valid, emb_size)
+
+        return output
+
+    def forward(
+        self,
+        data: Union[pyg.data.Data, List[List[pyg.data.Data]]],
+        data_indices: torch.Tensor,
+    ):
+
+        # TODO: add testing guard for eahc data mode to flow in each forward separately
+        if self.task_type == "single-component":
+            return self.forward_single_component(data=data)
+        elif self.task_type == "multi-component":
+            return self.forward_multi_component(data=data, data_indices=data_indices)
+
+    @classmethod
+    def from_json(cls, node_dim, edge_dim, json_path: str):
+        params = json.load(open(json_path, "r"))
+        return cls(node_dim, edge_dim, **params)
+
+
+class MPNNNets(nn.Module):
+    def __init__(
+        self,
+        node_dim: int,
+        edge_dim: int,
+        global_dim: int,
+        task_type: str = "multi-component",
+        hidden_dim: Optional[int] = 50,
+        depth: Optional[int] = 3,
+        dropout_rate: Optional[float] = 0.0,
+        **kwargs,
+    ):
+        super(MPNNNets, self).__init__()
+        self.node_dim = node_dim
+        self.edge_dim = edge_dim
+        self.global_dim = global_dim
+        self.depth = depth
+        self.dropout_rate = dropout_rate
+        self.layers = nn.ModuleList(
+            [
+                get_mpnn_layer(
+                    node_dim,
+                    edge_dim,
+                    global_dim,
+                    hidden_dim=hidden_dim,
+                    dropout=dropout_rate,
+                )
+                for _ in range(depth)
+            ]
+        )
+
+        supported_task_types = ["single-component", "multi-component"]
+        if task_type in supported_task_types:
+            self.task_type = task_type
+        else:
+            raise ValueError(f"{task_type} not in {supported_task_types}")
+
+    def forward_single_component(self, data: pyg.data.Data):
+        x, edge_index, edge_attr, u, batch = (
+            data.x,
+            data.edge_index,
+            data.edge_attr,
+            data.u,
+            data.batch,
+        )
+
+        for layer in self.layers:
+            x, edge_attr, u = layer(x, edge_index, edge_attr, u, batch)
+
+        return u
+
+    def forward_multi_component(
+        self,
+        data: List[pyg.data.Data],
+        data_indices: torch.Tensor,
+    ):
+
+        mol_emb = self.forward_single_component(data)
+
+        output = torch.full(
+            (data_indices.shape[0], data_indices.shape[1], mol_emb.shape[-1]),
+            fill_value=UNK_TOKEN,
+            device=mol_emb.device,
+            dtype=mol_emb.dtype,
+        )
+
+        # Create mask for valid indices
+        valid_mask = data_indices != UNK_TOKEN
+
+        # Get valid positions and corresponding embeddings
+        valid_indices = data_indices[valid_mask]  # shape: (num_valid,)
+        output[valid_mask] = mol_emb[
+            valid_indices
+        ]  # broadcasted to (num_valid, emb_size)
+
+        return output
+
+    def forward(
+        self,
+        data: Union[pyg.data.Data, List[List[pyg.data.Data]]],
+        data_indices: torch.Tensor,
+    ):
+
+        # TODO: add testing guard for eahc data mode to flow in each forward separately
+        if self.task_type == "single-component":
+            return self.forward_single_component(data=data)
+        elif self.task_type == "multi-component":
+            return self.forward_multi_component(data=data, data_indices=data_indices)
+
+    @classmethod
+    def from_json(cls, node_dim, edge_dim, json_path: str):
+        params = json.load(open(json_path, "r"))
+        return cls(node_dim, edge_dim, **params)
+
+
+class EquivariantNets(nn.Module):
+    def __init__(
+        self,
+        node_dim: int,
+        edge_dim: int,
+        global_dim: int,
+        task_type: str = "multi-component",
+        hidden_dim: Optional[int] = 50,
+        depth: Optional[int] = 3,
+        dropout_rate: Optional[float] = 0.0,
+        **kwargs,
+    ):
+        super(EquivariantNets, self).__init__()
+        self.node_dim = node_dim
+        self.edge_dim = edge_dim
+        self.global_dim = global_dim
+        self.depth = depth
+        self.dropout_rate = dropout_rate
+        self.layers = nn.ModuleList(
+            [
+                get_equivariant_layer(
+                    node_dim,
+                    edge_dim,
+                    global_dim,
+                    hidden_dim=hidden_dim,
+                    dropout=dropout_rate,
+                    norm_coors=kwargs.get("norm_coors", True),
+                    norm_feats=kwargs.get("norm_feats", True),
+                )
+                for _ in range(depth)
+            ]
+        )
+
+        supported_task_types = ["single-component", "multi-component"]
+        if task_type in supported_task_types:
+            self.task_type = task_type
+        else:
+            raise ValueError(f"{task_type} not in {supported_task_types}")
+
+    def forward_single_component(self, data: pyg.data.Data):
+        x, pos, edge_index, edge_attr, u, batch = (
+            data.x,
+            data.pos,
+            data.edge_index,
+            data.edge_attr,
+            data.u,
+            data.batch,
+        )
+        x = torch.cat([pos, x], dim=-1)
+        for layer in self.layers:
+            x, edge_attr, u = layer(x, edge_index, edge_attr, u, batch)
+
+        return u
+
+    def forward_multi_component(
+        self,
+        data: List[pyg.data.Data],
+        data_indices: torch.Tensor,
+    ):
+
+        mol_emb = self.forward_single_component(data)
+
+        output = torch.full(
+            (data_indices.shape[0], data_indices.shape[1], mol_emb.shape[-1]),
+            fill_value=UNK_TOKEN,
+            device=mol_emb.device,
+            dtype=mol_emb.dtype,
+        )
+
+        # Create mask for valid indices
+        valid_mask = data_indices != UNK_TOKEN
+
+        # Get valid positions and corresponding embeddings
+        valid_indices = data_indices[valid_mask]  # shape: (num_valid,)
+        output[valid_mask] = mol_emb[
+            valid_indices
+        ]  # broadcasted to (num_valid, emb_size)
 
         return output
 

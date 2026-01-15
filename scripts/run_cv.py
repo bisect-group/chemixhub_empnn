@@ -1,7 +1,6 @@
 import argparse
 import os
 import torch
-import sys
 import copy
 import pandas as pd
 import numpy as np
@@ -38,11 +37,23 @@ def main(
 
     featurization = config.dataset.featurization
 
-    if FEATURIZATION_TYPE[featurization] == "graphs" and config.mixture_model.mol_encoder.type != "gnn":
-        raise ValueError(f"featurization is:{FEATURIZATION_TYPE[featurization]} but molecule encoder is: {config.mol_encoder.type}")
+    if FEATURIZATION_TYPE[featurization] == "graphs" and (
+        config.mixture_model.mol_encoder.type != "gnn"
+        and config.mixture_model.mol_encoder.type != "equivariant_gnn"
+        and config.mixture_model.mol_encoder.type != "mpnn"
+    ):
+        raise ValueError(
+            f"featurization is:{FEATURIZATION_TYPE[featurization]} but molecule encoder is: {config.mixture_model.mol_encoder.type}"
+        )
 
-    if FEATURIZATION_TYPE[featurization] == "tensors" and config.mixture_model.mol_encoder.type == "gnn":
-        raise ValueError(f"featurization is:{FEATURIZATION_TYPE[featurization]} but molecule encoder is: {config.mol_encoder.type}")
+    if FEATURIZATION_TYPE[featurization] == "tensors" and (
+        config.mixture_model.mol_encoder.type == "gnn"
+        or config.mixture_model.mol_encoder.type == "equivariant_gnn"
+        or config.mixture_model.mol_encoder.type == "mpnn"
+    ):
+        raise ValueError(
+            f"featurization is:{FEATURIZATION_TYPE[featurization]} but molecule encoder is: {config.mixture_model.mol_encoder.type}"
+        )
 
     # Dataset
     dataset = DATA_CATALOG[config.dataset.name]()
@@ -90,7 +101,7 @@ def main(
         model = build_mixture_model(config=config.mixture_model)
         model = model.to(device)
 
-        # Save hyper parameters    
+        # Save hyper parameters
         OmegaConf.save(config, f"{root_dir}/hparams_{experiment_name}.yaml")
 
         # Training
@@ -129,8 +140,10 @@ def main(
 
         print(metric_dict)
         test_metrics = pd.DataFrame(metric_dict, index=["metrics"]).transpose()
-        test_metrics.to_csv(os.path.join(config.root_dir, f"{run_name}_test_metrics.csv"))
-    
+        test_metrics.to_csv(
+            os.path.join(config.root_dir, f"{run_name}_test_metrics.csv")
+        )
+
         y_pred = y_pred.detach().cpu().numpy().flatten()
         y_test = y_test.detach().cpu().numpy().flatten()
         test_predictions = pd.DataFrame(
@@ -141,21 +154,34 @@ def main(
             },
             index=range(len(y_pred)),
         )
-        test_predictions.to_csv(os.path.join(config.root_dir, f"{run_name}_test_predictions.csv"), index=False)
+        test_predictions.to_csv(
+            os.path.join(config.root_dir, f"{run_name}_test_predictions.csv"),
+            index=False,
+        )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run cross validation experiment")
     parser.add_argument("config", type=str, help="Path to the YAML configuration file")
-    parser.add_argument("--wandb_project", type=str, default=None, help="Name of the wandb project (optional)")
+    parser.add_argument(
+        "--wandb_project",
+        type=str,
+        default=None,
+        help="Name of the wandb project (optional)",
+    )
 
     args = parser.parse_args()
 
     config = OmegaConf.load(args.config)
-    experiment_name = f"{config.dataset.featurization}_{config.mix_encoder.type}"
+    experiment_name = (
+        f"{config.dataset.featurization}_{config.mixture_model.mix_encoder.type}"
+    )
 
     # Overwrite config root_dir
-    config.root_dir = os.path.abspath(f"../results/cv_split/{experiment_name}/{config.dataset.name}/{config.dataset.property.lower().replace(' ', '_')}")
-    
+    config.root_dir = os.path.abspath(
+        f"../results/cv_split/{experiment_name}/{config.dataset.name}/{config.dataset.property.lower().replace(' ', '_')}"
+    )
+
     if args.wandb_project is not None:
         wandb_logger = WandBLogger(project=args.wandb_project)
     else:

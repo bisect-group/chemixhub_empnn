@@ -108,11 +108,26 @@ def custom_molecular_graphs(
         from_smiles(smiles=i, init_globals=init_globals) for i in smiles
     ]
 
+def custom_molecular_graphs_3d(
+    smiles: List[str],
+    init_globals: Optional[bool] = False,
+) -> List[Data]:
+    """
+    Converts a list of SMILES strings into a custom graph tuple
+    """
+
+    from .graph_utils import from_smiles_3d
+
+    return [
+        from_smiles_3d(smiles=i, init_globals=init_globals) for i in smiles
+    ]
+
 FEATURIZATION_MAPPING = {
     "rdkit2d_normalized_features": rdkit2d_normalized_features,
     "morgan_fingerprints": morgan_fingerprints,
     "pyg_molecular_graphs": pyg_molecular_graphs,
     "custom_molecular_graphs": custom_molecular_graphs,
+    "custom_molecular_graphs_3d": custom_molecular_graphs_3d,
     "molt5_embeddings": molt5_embedding,
 }
 
@@ -121,6 +136,7 @@ FEATURIZATION_TYPE = {
     "morgan_fingerprints": "tensors",
     "pyg_molecular_graphs": "graphs",
     "custom_molecular_graphs": "graphs",
+    "custom_molecular_graphs_3d": "graphs",
     "molt5_embeddings": "tensors",
 }
 

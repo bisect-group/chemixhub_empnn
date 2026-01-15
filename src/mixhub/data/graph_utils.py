@@ -1,11 +1,12 @@
 from typing import List, Any
 
-import rdkit.Chem as Chem
+from rdkit import Chem
 from rdkit import RDLogger
 
 RDLogger.DisableLog("rdApp.*")
 
 import warnings
+
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import torch
@@ -79,15 +80,14 @@ def global_features(mol: Chem.rdchem.Mol) -> List:
     return feats
 
 
-
 def from_smiles(smiles: str, init_globals: bool = True) -> Data:
     mol = Chem.MolFromSmiles(smiles)
-    smi = Chem.MolToSmiles(mol)         # canonicalized
+    smi = Chem.MolToSmiles(mol)  # canonicalized
 
     a_feats = []
     for a in mol.GetAtoms():
         a_feats.append(atom_features(a))
-    
+
     a_feats = torch.tensor(a_feats, dtype=torch.float)
 
     b_indices, b_feats = [], []
@@ -98,7 +98,7 @@ def from_smiles(smiles: str, init_globals: bool = True) -> Data:
 
         b_indices += [[i, j], [j, i]]
         b_feats += [feats, feats]
-    
+
     b_index = torch.tensor(b_indices)
     b_index = b_index.t().to(torch.long).view(2, -1)
     b_feats = torch.tensor(b_feats, dtype=torch.float)
@@ -106,12 +106,99 @@ def from_smiles(smiles: str, init_globals: bool = True) -> Data:
     if b_index.numel() > 0:  # Sort indices.
         perm = (b_index[0] * a_feats.size(0) + b_index[1]).argsort()
         b_index, b_feats = b_index[:, perm], b_feats[perm]
-    
+
     if init_globals:
         g_feats = torch.tensor([global_features(mol)], dtype=torch.float)
     else:
-        g_feats = torch.tensor([[0.]], dtype=torch.float)
+        g_feats = torch.tensor([[0.0]], dtype=torch.float)
 
     return Data(x=a_feats, edge_index=b_index, edge_attr=b_feats, u=g_feats, smiles=smi)
 
 
+def from_smiles_3d(
+    smiles: str, init_globals: bool = False, num_conformers: int = 50
+) -> Data:
+    """
+    Generate 3D molecular graph with optimized conformer.
+
+    Args:
+        smiles: SMILES string
+        init_globals: Whether to initialize global features
+        num_conformers: Number of conformers to generate (best one selected by energy)
+
+    Returns:
+        Data object with 3D coordinates in pos attribute
+    """
+    mol = Chem.MolFromSmiles(smiles)
+    mol = Chem.AddHs(mol)
+
+    # Generate multiple conformers
+    params = Chem.AllChem.ETKDG()
+    params.randomSeed = 0
+    params.enforceChirality = True
+    params.useRandomCoords = True
+    params.numThreads = 1
+    conf_ids = Chem.AllChem.EmbedMultipleConfs(
+        mol, numConfs=num_conformers, params=params
+    )
+
+    # Optimize all conformers and track energies
+    energies = []
+    for conf_id in conf_ids:
+        # Returns 0 if successful, 1 if failed
+        result = Chem.AllChem.UFFOptimizeMolecule(mol, confId=conf_id)
+        if result == 0:
+            # Calculate energy for this conformer
+            ff = Chem.AllChem.UFFGetMoleculeForceField(mol, confId=conf_id)
+            energy = ff.CalcEnergy()
+            energies.append((conf_id, energy))
+
+    # Select conformer with lowest energy
+    if energies:
+        best_conf_id = min(energies, key=lambda x: x[1])[0]
+    else:
+        # Fallback to first conformer if optimization failed
+        best_conf_id = 0
+
+    smi = Chem.MolToSmiles(Chem.RemoveHs(mol))  # canonicalized without Hs
+
+    a_feats = []
+    positions = []
+    for a in mol.GetAtoms():
+        a_feats.append(atom_features(a))
+        pos = mol.GetConformer(best_conf_id).GetAtomPosition(a.GetIdx())
+        positions.append([pos.x, pos.y, pos.z])
+
+    a_feats = torch.tensor(a_feats, dtype=torch.float)
+    positions = torch.tensor(positions, dtype=torch.float)
+
+    b_indices, b_feats = [], []
+    for b in mol.GetBonds():
+        i = b.GetBeginAtomIdx()
+        j = b.GetEndAtomIdx()
+        feats = bond_features(b)
+
+        b_indices += [[i, j], [j, i]]
+        b_feats += [feats, feats]
+
+    b_index = torch.tensor(b_indices)
+    b_index = b_index.t().to(torch.long).view(2, -1)
+    b_feats = torch.tensor(b_feats, dtype=torch.float)
+
+    if b_index.numel() > 0:  # Sort indices.
+        perm = (b_index[0] * a_feats.size(0) + b_index[1]).argsort()
+        b_index, b_feats = b_index[:, perm], b_feats[perm]
+
+    if init_globals:
+        g_feats = torch.tensor([global_features(mol)], dtype=torch.float)
+    else:
+        g_feats = torch.tensor([[0.0]], dtype=torch.float)
+
+    return Data(
+        x=a_feats,
+        pos=positions,
+        edge_index=b_index,
+        edge_attr=b_feats,
+        u=g_feats,
+        smiles=smi,
+    )

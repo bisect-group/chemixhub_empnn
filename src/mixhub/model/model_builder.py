@@ -1,5 +1,4 @@
 import sys
-import functools
 from mixhub.model.aggregation import (
     MeanAggregation,
     MaxAggregation,
@@ -15,13 +14,11 @@ from mixhub.model.predictor import (
     ScaledCosineRegressor,
 )
 from mixhub.model.utils import ActivationEnum
-from mixhub.model.graph import GraphNets
-from mixhub.model.linear import FullyConnectedNet
+from mixhub.model.graph import GraphNets, EquivariantNets, MPNNNets
 from mixhub.model.mixture import SelfAttentionBlock, DeepSet, MixtureModel
 from mixhub.data.graph_utils import NODE_DIM, EDGE_DIM
 
 
-import torch
 from torch import nn
 
 
@@ -38,10 +35,14 @@ class MoleculeEncoderEnum(StrEnum):
 
     gnn = enum.auto()
     linear = enum.auto()
+    mpnn = enum.auto()
+    equivariant_gnn = enum.auto()
+
 
 # Molecular Fractions
 class FractionsAggregationEnum(StrEnum):
     """Basic str enum for mole fraction aggregation (en-to-end training)."""
+
     concat = enum.auto()
     multiply = enum.auto()
 
@@ -52,6 +53,7 @@ class MixtureEncoderEnum(StrEnum):
 
     deepset = enum.auto()
     self_attn = enum.auto()
+
 
 # Mixture block
 class AggEnum(StrEnum):
@@ -64,9 +66,11 @@ class AggEnum(StrEnum):
     attn = enum.auto()
     set2set = enum.auto()
 
+
 # Prediction head
 class RegressorEnum(StrEnum):
     """Basic str enum for regressors."""
+
     mlp = enum.auto()
     physics_based = enum.auto()
     scaled_cosine = enum.auto()
@@ -88,6 +92,24 @@ def build_mixture_model(config):
             # config.mol_encoder.gnn.global_dim,
             config.mol_encoder.output_dim,
         ),
+        MoleculeEncoderEnum.mpnn: MPNNNets(
+            node_dim=NODE_DIM,
+            edge_dim=EDGE_DIM,
+            global_dim=config.mol_encoder.gnn.global_dim,
+            hidden_dim=config.mol_encoder.gnn.hidden_dim,
+            depth=config.mol_encoder.gnn.depth,
+            dropout_rate=config.dropout_rate,
+        ),
+        MoleculeEncoderEnum.equivariant_gnn: EquivariantNets(
+            node_dim=NODE_DIM,
+            edge_dim=EDGE_DIM,
+            global_dim=config.mol_encoder.equivariant_gnn.global_dim,
+            hidden_dim=config.mol_encoder.equivariant_gnn.hidden_dim,
+            depth=config.mol_encoder.equivariant_gnn.depth,
+            dropout_rate=config.dropout_rate,
+            norm_coors=config.mol_encoder.equivariant_gnn.norm_coors,
+            norm_feats=config.mol_encoder.equivariant_gnn.norm_feats,
+        ),
     }
 
     # Projection layer
@@ -107,7 +129,7 @@ def build_mixture_model(config):
         AggEnum.set2set: Set2SetAggregation(
             in_channels=config.set2set_aggregation.in_channels,
             processing_steps=config.set2set_aggregation.processing_steps,
-        )
+        ),
     }
 
     # Mixture block
