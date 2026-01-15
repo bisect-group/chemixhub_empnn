@@ -150,15 +150,6 @@ def main():
 
     print(metric_dict)
 
-    # Log final test metrics to wandb
-    wandb.log(
-        {
-            "test_mae": metric_dict["mae"],
-            "test_rmse": metric_dict["rmse"],
-            "test_r2": metric_dict["r2"],
-        }
-    )
-
     test_metrics = pd.DataFrame(metric_dict, index=["metrics"]).transpose()
     test_metrics.to_csv(os.path.join(config.root_dir, f"{run_name}_test_metrics.csv"))
 
